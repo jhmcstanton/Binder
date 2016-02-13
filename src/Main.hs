@@ -2,7 +2,7 @@ module Main where
 
 import           Binder.File 
 
-import           Text.Blaze.Renderer.Text
+import           Text.Blaze.Html.Renderer.Text
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T
 import           System.Directory
@@ -16,8 +16,7 @@ main = do
   if not targetDirExists 
     then createDirectory targetDir
     else return ()
---  writeFile (targetDir <> "/" <> binderName) . binder . renderHtml $ binder
-  return ()
+  T.writeFile (targetDir <> "/" <> binderName) . renderHtml $ binder
 
 targetDir = "target"
 binderName = "binder.html"
