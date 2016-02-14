@@ -18,12 +18,13 @@ import           Text.Blaze
 import           Data.Monoid
 import           Data.Foldable
 
+import Debug.Trace --remove
+
 configFileName = "config.yaml"
 
 collectBinder :: IO (Binder (Maybe Object) (T.Text, T.Text))
 collectBinder = do
   base         <- getCurrentDirectory
-  putStrLn $ show base 
   allContents  <- getDirectoryContents base  
   let contents = drop 2 allContents
   directories  <- filterM doesDirectoryExist contents
@@ -45,7 +46,7 @@ buildBinder binder@(Binder base _ _ _) =
   mkNote name markdownText = (h2 ! Attr.class_ "note" ! Attr.id (lazyTextValue name) $ toHtml name) <> (markdown def markdownText)
   mkToC contents = (h2 ! Attr.id (textValue "ToC") $ toHtml (T.pack "Table of Contents")) <> ul contents
   mkJump :: T.Text -> T.Text
-  mkJump name = "./binder.html#" <> name --base <> "/binder.html#" <> name -- this will probably need to be updated
+  mkJump name = "./binder.html#" <> name -- this will probably need to be updated
   appendToC :: T.Text -> Html -> Html -- at some point this will need to have section #s   
   appendToC name currentToC = currentToC <> (a ! Attr.href (lazyTextValue $ mkJump name ) $ li ! Attr.class_ "ToC_entry" $ toHtml name)
   op :: Binder (Maybe Object) (T.Text, T.Text) -> [(T.Text, Html)]

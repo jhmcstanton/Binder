@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Main where
 
 import           Binder.File 
@@ -16,7 +17,12 @@ main = do
   if not targetDirExists 
     then createDirectory targetDir
     else return ()
-  T.writeFile (targetDir <> "/" <> binderName) . renderHtml $ binder
+  let binderOut = targetDir <> "/" <> binderName
+  fileExists <- doesFileExist binderOut
+  if fileExists
+    then putStrLn "Cleaning previous binder.." >> removeFile binderOut
+    else return ()  
+  T.writeFile binderOut . renderHtml $ binder
 
 targetDir = "target"
 binderName = "binder.html"
