@@ -16,34 +16,39 @@ import           Text.Blaze.Html5
 import qualified Text.Blaze.Html5.Attributes as Attr
 import           Text.Blaze
 import           Data.Monoid
+import           Data.Foldable
 
 configFileName = "config.yaml"
 
-collectBinder :: IO (Binder (Maybe Object) (FilePath, T.Text))
+collectBinder :: IO (Binder (Maybe Object) (T.Text, T.Text))
 collectBinder = do
   base         <- getCurrentDirectory
-  contents     <- getDirectoryContents base
+  putStrLn $ show base 
+  allContents  <- getDirectoryContents base  
+  let contents = drop 2 allContents
   directories  <- filterM doesDirectoryExist contents
-  noteNames    <- findFilesWith (return . isInfixOf ".note") contents "" 
+  noteNames    <- filterM (return . isInfixOf ".note") contents 
   noteContents <- sequence . fmap T.readFile $ noteNames
-  let notes    = zip (fmap (reverse . drop 5 . reverse) noteNames) noteContents
---  configExists <- doesFileExist configFileName
-  config       <- decodeFile configFileName --if configExists then decodeFile configFileName else return Nothing                
-  subBinders   <- mapM (\dir -> setCurrentDirectory (base <> dir) 
+  let notes    = zip (fmap (T.pack . reverse . drop 5 . reverse) noteNames) noteContents
+  configExists <- doesFileExist configFileName
+  config       <- if configExists then putStrLn "gettign conf" >> decodeFile configFileName else return Nothing                
+  subBinders   <- mapM (\dir -> setCurrentDirectory (base <> "/" <> dir) 
                           >> collectBinder 
                           >>= (\binder -> setCurrentDirectory base 
-                          >> return binder)) contents
+                          >> return binder)) directories
   return $ Binder (T.pack base) config notes subBinders
 
-buildBinder :: Binder (Maybe Object) (FilePath, T.Text) -> Html
-buildBinder binder = 
-  let (contents, marks) = unzip (op binder) in mkToC (foldr appendToC mempty contents) <> foldr1 (<>) marks where 
-  mkNote :: FilePath -> T.Text -> Html
-  mkNote name markdownText = (h2 ! Attr.class_ "note" ! Attr.id (stringValue name) $ toHtml name) <> (markdown def markdownText)
+buildBinder :: Binder (Maybe Object) (T.Text, T.Text) -> Html
+buildBinder binder@(Binder base _ _ _) = 
+  let (contents, marks) = unzip (op binder) in mkToC (foldr appendToC mempty contents) <> fold marks where 
+  mkNote :: T.Text -> T.Text -> Html
+  mkNote name markdownText = (h2 ! Attr.class_ "note" ! Attr.id (lazyTextValue name) $ toHtml name) <> (markdown def markdownText)
   mkToC contents = (h2 ! Attr.id (textValue "ToC") $ toHtml (T.pack "Table of Contents")) <> ul contents
-  appendToC :: T.Text -> Html -> Html -- at some point this will need to have section #s 
-  appendToC name currentToC = currentToC <> (a ! Attr.href "name" $ li ! Attr.class_ "ToC_entry" $ toHtml name)
-  op :: Binder (Maybe Object) (FilePath, T.Text) -> [(T.Text, Html)]
+  mkJump :: T.Text -> T.Text
+  mkJump name = "./binder.html#" <> name --base <> "/binder.html#" <> name -- this will probably need to be updated
+  appendToC :: T.Text -> Html -> Html -- at some point this will need to have section #s   
+  appendToC name currentToC = currentToC <> (a ! Attr.href (lazyTextValue $ mkJump name ) $ li ! Attr.class_ "ToC_entry" $ toHtml name)
+  op :: Binder (Maybe Object) (T.Text, T.Text) -> [(T.Text, Html)]
   op (Binder _ _ notes binders) = 
-    fmap (\(name, mark) -> (T.pack name, mkNote name mark <> markdown def mark)) notes ++ foldr (\binder acc -> acc ++ op binder) [] binders
-
+    fmap (\(name, mark) -> (name, mkNote name mark <> markdown def mark)) notes <> 
+      foldr (\binder acc -> acc ++ op binder) [] binders
