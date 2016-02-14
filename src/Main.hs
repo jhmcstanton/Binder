@@ -12,7 +12,7 @@ import           Data.Monoid
 main :: IO ()
 main = do 
   binderContents <- collectBinder
-  let binder = buildBinder binderContents
+  let binder = addHeader $ buildBinder binderContents
   targetDirExists <- doesDirectoryExist targetDir
   if not targetDirExists 
     then createDirectory targetDir

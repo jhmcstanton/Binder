@@ -17,6 +17,7 @@ import qualified Text.Blaze.Html5.Attributes as Attr
 import           Text.Blaze
 import           Data.Monoid
 import           Data.Foldable
+import           Prelude hiding (head)
 
 import Debug.Trace --remove
 
@@ -53,3 +54,6 @@ buildBinder binder@(Binder base _ _ _) =
   op (Binder _ _ notes binders) = 
     fmap (\(name, mark) -> (name, mkNote name mark)) notes <> 
       foldr (\binder acc -> acc ++ op binder) [] binders
+
+addHeader :: Html -> Html
+addHeader html = (head $ link ! Attr.href "style.css" ! Attr.rel "stylesheet" ! Attr.type_ "text/css") <> html
