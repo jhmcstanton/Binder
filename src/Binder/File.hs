@@ -51,5 +51,5 @@ buildBinder binder@(Binder base _ _ _) =
   appendToC name currentToC = currentToC <> (a ! Attr.href (lazyTextValue $ mkJump name ) $ li ! Attr.class_ "ToC_entry" $ toHtml name)
   op :: Binder (Maybe Object) (T.Text, T.Text) -> [(T.Text, Html)]
   op (Binder _ _ notes binders) = 
-    fmap (\(name, mark) -> (name, mkNote name mark <> markdown def mark)) notes <> 
+    fmap (\(name, mark) -> (name, mkNote name mark)) notes <> 
       foldr (\binder acc -> acc ++ op binder) [] binders
