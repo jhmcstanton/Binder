@@ -2,9 +2,11 @@
 module Binder.File where
 
 import Binder.Types
+import Binder.Res.CSS
 
 import           System.Directory
 import           Control.Monad
+import           Control.Monad.State
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T (readFile)
 import           Data.List (isInfixOf)
@@ -23,22 +25,25 @@ import Debug.Trace --remove
 
 configFileName = "config.yaml"
 
-collectBinder :: IO (Binder (Maybe Object) (T.Text, T.Text))
+collectBinder :: StateT Int IO (Binder (Maybe Object) (T.Text, T.Text), [Css])
 collectBinder = do
-  base          <- getCurrentDirectory
-  allContents   <- getDirectoryContents base  
+  depth         <- get
+  base          <- liftIO $ getCurrentDirectory
+  allContents   <- liftIO $ getDirectoryContents base  
   let contents  = drop 2 allContents
-  directories   <- filterM doesDirectoryExist contents
+  directories   <- liftIO $ filterM doesDirectoryExist contents
   let noteNames = filter (isInfixOf ".note" . reverse . take 5 . reverse) contents 
-  noteContents  <- sequence . fmap T.readFile $ noteNames
+  noteContents  <- liftIO $ sequence . fmap T.readFile $ noteNames
   let notes     = zip (fmap (T.pack . reverse . drop 5 . reverse) noteNames) noteContents
-  configExists  <- doesFileExist configFileName
-  config        <- if configExists then putStrLn "gettign conf" >> decodeFile configFileName else return Nothing                
-  subBinders    <- mapM (\dir -> setCurrentDirectory (base <> "/" <> dir) 
-                           >> collectBinder 
-                           >>= (\binder -> setCurrentDirectory base 
-                           >> return binder)) directories
-  return $ Binder (T.pack base) config notes subBinders
+  configExists  <- liftIO $ doesFileExist configFileName
+  config        <- liftIO $ if configExists then putStrLn "getting conf" >> decodeFile configFileName else return Nothing                
+  stateResults  <- liftIO $ mapM (\dir -> setCurrentDirectory (base <> "/" <> dir) 
+                                             >> liftIO (runStateT collectBinder (depth + 1))
+                                             >>= (\binderAndStyles -> setCurrentDirectory base 
+                                             >> return binderAndStyles)) directories
+  let (subBindersAndStyles, _ ) = unzip stateResults
+  let (subBinders, styles     ) = unzip subBindersAndStyles
+  return $ (Binder (T.pack base) config notes subBinders, generateTocStyle depth : fold styles)
 
 buildBinder :: Binder (Maybe Object) (T.Text, T.Text) -> Html
 buildBinder binder@(Binder base _ _ _) = 

@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Binder.Res.CSS (writeStyle, defaultStyle) where
+module Binder.Res.CSS (writeStyle, defaultStyle, generateTocStyle, Css, render) where
 
 import           Clay
 import           Clay.Geometry
@@ -8,6 +8,7 @@ import           Clay.Border
 import           Data.Monoid
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T
+import qualified Data.Text as ST
 import           Data.Foldable (fold)
 
 writeStyle :: FilePath -> T.Text -> IO ()
@@ -24,7 +25,14 @@ tocStyle = element "#toc-list" ? do
   paddingBottom (pct 2)
   borderBottom groove (em 0.2) gray
 
+
+generateTocStyle :: Int -> Css
+generateTocStyle depth = element (mappend ".toc-list-inner" . ST.pack . show $ depth) ? do
+  marginLeft (pct . fromIntegral $ depth * 2)
+
+
 sectionStyle = element ".section" ? do
   paddingBottom (pct 2)
   paddingBottom (pct 2)
   borderBottom groove (em 0.2) gray
+

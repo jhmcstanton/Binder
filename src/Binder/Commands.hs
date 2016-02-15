@@ -13,6 +13,7 @@ import           Data.Monoid
 import           Prelude hiding (init)
 import           Options.Applicative
 import           Control.Monad.Reader
+import           Control.Monad.State
 
 targetDir  = "target"
 binderName = "binder.html"
@@ -29,22 +30,31 @@ entry = execParser opts >>= runWithOpts where
 
 runWithOpts :: App -> IO ()
 runWithOpts (App True _ v)      = runReaderT init v
-runWithOpts (App _ True _)      = mkStyles
-runWithOpts (App False False v) = runIf v (putStrLn "Making styles...") >> mkStyles >> runReaderT build v
+runWithOpts (App _ True _)      = mkStyles []
+runWithOpts (App False False v) = 
+  runIf v (putStrLn "Making styles...") >> runReaderT build v >>= mkStyles
 
-build :: ReaderT Bool IO ()
+build :: ReaderT Bool IO [Css]
 build = do 
   verbose        <- ask
-  binderContents <- liftIO collectBinder 
+  ((binderContents, styles), _) <- liftIO $ runStateT collectBinder 0
   let binder = addHeader $ buildBinder binderContents
   liftIO $ createTargetIfNecessary targetDir
   let binderOut = targetDir <> "/" <> binderName
   fileExists <- liftIO $ doesFileExist binderOut
   runIf fileExists (runIf verbose (liftIO $ putStrLn "Cleaning previous binder.." >> removeFile binderOut))
   liftIO $ T.writeFile binderOut . renderHtml $ binder
+  return styles
 
-mkStyles :: IO ()
-mkStyles = createTargetIfNecessary targetDir >> writeStyle (targetDir <> "/style.css") defaultStyle
+mkStyles :: [Css] -> IO ()
+mkStyles styles = 
+  createTargetIfNecessary targetDir 
+  >> writeStyle stylesheet defaultStyle
+  >> mapM_ (T.appendFile stylesheet . render) styles
+  where
+    stylesheet = targetDir <> "/style.css"
+
+writeDefaultStyle = writeStyle (targetDir <> "/style.css") defaultStyle
 
 init :: ReaderT Bool IO ()
 init = do 
@@ -54,7 +64,7 @@ init = do
     then runIf verbose $ liftIO $ putStrLn "Target directory exists, stopping init"
     else do
       liftIO $ createDirectory targetDir
-      liftIO $ mkStyles
+      liftIO $ mkStyles []
 
 createTargetIfNecessary :: FilePath -> IO ()
 createTargetIfNecessary path = do
