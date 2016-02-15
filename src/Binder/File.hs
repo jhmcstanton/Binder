@@ -17,7 +17,7 @@ import qualified Text.Blaze.Html5.Attributes as Attr
 import           Text.Blaze
 import           Data.Monoid
 import           Data.Foldable
-import           Prelude hiding (head)
+import           Prelude hiding (head, div)
 
 import Debug.Trace --remove
 
@@ -44,12 +44,14 @@ buildBinder :: Binder (Maybe Object) (T.Text, T.Text) -> Html
 buildBinder binder@(Binder base _ _ _) = 
   let (contents, marks) = unzip (op binder) in mkToC (foldr appendToC mempty contents) <> fold marks where 
   mkNote :: T.Text -> T.Text -> Html
-  mkNote name markdownText = (h2 ! Attr.class_ "note" ! Attr.id (lazyTextValue name) $ toHtml name) <> (markdown def markdownText)
-  mkToC contents = (h2 ! Attr.id (textValue "ToC") $ toHtml (T.pack "Table of Contents")) <> ul contents
+  mkNote name markdownText = mkSection $ (h2 ! Attr.class_ "note" ! Attr.id (lazyTextValue name) $ toHtml name) <> (markdown def markdownText)
+  mkToC contents = (h2 ! Attr.id (textValue "ToC") $ toHtml (T.pack "Table of Contents")) <> (ul ! Attr.id "toc-list"  $ contents)
+  mkSection :: Html -> Html
+  mkSection = div ! Attr.class_ "section" 
   mkJump :: T.Text -> T.Text
   mkJump name = "./binder.html#" <> name -- this will probably need to be updated
   appendToC :: T.Text -> Html -> Html -- at some point this will need to have section #s   
-  appendToC name currentToC = currentToC <> (a ! Attr.href (lazyTextValue $ mkJump name ) $ li ! Attr.class_ "ToC_entry" $ toHtml name)
+  appendToC name currentToC = (a ! Attr.href (lazyTextValue $ mkJump name ) $ li ! Attr.class_ "ToC_entry" $ toHtml name) <> currentToC
   op :: Binder (Maybe Object) (T.Text, T.Text) -> [(T.Text, Html)]
   op (Binder _ _ notes binders) = 
     fmap (\(name, mark) -> (name, mkNote name mark)) notes <> 
