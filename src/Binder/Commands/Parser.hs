@@ -5,6 +5,7 @@ module Binder.Commands.Parser where
 import           Options.Applicative
 
 data App = App Bool Bool
+
  
 parser = App <$> switch (short 'i' <> 
                          long "init" <>

@@ -19,7 +19,11 @@ binderName = "binder.html"
 -- pretty much all of this needs to be refactored for a reader environment
 
 entry :: IO ()
-entry = execParser (info parser mempty) >>= runWithOpts where
+entry = execParser opts >>= runWithOpts where
+  opts = info (helper <*> parser)
+     ( fullDesc
+    <> progDesc "Binder is a note taking application that allows user to organize notes by folder and write them in markdown."
+    <> header "Binder - a note taking tool")
   
 
 runWithOpts :: App -> IO ()
