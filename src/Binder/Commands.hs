@@ -28,37 +28,39 @@ entry = execParser opts >>= runWithOpts where
   
 
 runWithOpts :: App -> IO ()
-runWithOpts (App True _ _)      = init
+runWithOpts (App True _ v)      = runReaderT init v
 runWithOpts (App _ True _)      = mkStyles
-runWithOpts (App False False _) = mkStyles >> build
+runWithOpts (App False False v) = runIf v (putStrLn "Making styles...") >> mkStyles >> runReaderT build v
 
-build :: IO ()
+build :: ReaderT Bool IO ()
 build = do 
-  binderContents <- collectBinder 
+  verbose        <- ask
+  binderContents <- liftIO collectBinder 
   let binder = addHeader $ buildBinder binderContents
-  createTargetIfNecessary targetDir
+  liftIO $ createTargetIfNecessary targetDir
   let binderOut = targetDir <> "/" <> binderName
-  fileExists <- doesFileExist binderOut
-  if fileExists
-    then putStrLn "Cleaning previous binder.." >> removeFile binderOut
-    else return ()  
-  T.writeFile binderOut . renderHtml $ binder
+  fileExists <- liftIO $ doesFileExist binderOut
+  runIf fileExists (runIf verbose (liftIO $ putStrLn "Cleaning previous binder.." >> removeFile binderOut))
+  liftIO $ T.writeFile binderOut . renderHtml $ binder
 
 mkStyles :: IO ()
 mkStyles = createTargetIfNecessary targetDir >> writeStyle (targetDir <> "/style.css") defaultStyle
 
-init :: IO ()
+init :: ReaderT Bool IO ()
 init = do 
-  targetExists <- doesDirectoryExist targetDir
+  verbose      <- ask
+  targetExists <- liftIO $ doesDirectoryExist targetDir
   if targetExists
-    then putStrLn "Target directory exists, stopping init"
+    then runIf verbose $ liftIO $ putStrLn "Target directory exists, stopping init"
     else do
-      createDirectory targetDir
-      mkStyles
+      liftIO $ createDirectory targetDir
+      liftIO $ mkStyles
 
 createTargetIfNecessary :: FilePath -> IO ()
 createTargetIfNecessary path = do
-  targetDirExists <- doesDirectoryExist targetDir     
-  if targetDirExists 
-    then return () 
-    else createDirectory targetDir
+  targetDirExists <- doesDirectoryExist targetDir
+  runIf (not targetDirExists) $ createDirectory targetDir
+
+runIf :: ( Monad m ) => Bool -> m () -> m ()
+runIf False _ = return ()
+runIf True m  = m

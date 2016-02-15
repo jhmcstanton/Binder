@@ -4,6 +4,7 @@ module Binder.Res.CSS (writeStyle, defaultStyle) where
 
 import           Clay
 import           Clay.Geometry
+import           Clay.Border
 import           Data.Monoid
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T
@@ -19,7 +20,11 @@ bodyStyle = binderBody where
   binderBody = body ? marginLeft (pct 5)
 
 tocStyle = element "#toc-list" ? do
-  paddingBottom (pct 80)
+  marginBottom (pct 2)
+  paddingBottom (pct 2)
+  borderBottom groove (em 0.2) gray
 
 sectionStyle = element ".section" ? do
-  paddingBottom (em 8)
+  paddingBottom (pct 2)
+  paddingBottom (pct 2)
+  borderBottom groove (em 0.2) gray
