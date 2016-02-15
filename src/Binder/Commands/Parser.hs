@@ -4,7 +4,7 @@ module Binder.Commands.Parser where
 
 import           Options.Applicative
 
-data App = App Bool Bool
+data App = App Bool Bool Bool 
 
  
 parser = App <$> switch (short 'i' <> 
@@ -13,3 +13,6 @@ parser = App <$> switch (short 'i' <>
              <*> switch (short 's' <>
                          long "styles" <>
                          help "Regenerate default styles (deletes existing style.css)")
+             <*> switch (short 'v' <>
+                         long "verbose" <>
+                         help "Run in verbose mode (overwrites config.yaml setting)")

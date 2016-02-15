@@ -12,6 +12,7 @@ import           System.Directory
 import           Data.Monoid
 import           Prelude hiding (init)
 import           Options.Applicative
+import           Control.Monad.Reader
 
 targetDir  = "target"
 binderName = "binder.html"
@@ -27,18 +28,15 @@ entry = execParser opts >>= runWithOpts where
   
 
 runWithOpts :: App -> IO ()
-runWithOpts (App True _)      = init
-runWithOpts (App _ True)      = mkStyles
-runWithOpts (App False False) = build
+runWithOpts (App True _ _)      = init
+runWithOpts (App _ True _)      = mkStyles
+runWithOpts (App False False _) = mkStyles >> build
 
 build :: IO ()
 build = do 
   binderContents <- collectBinder 
   let binder = addHeader $ buildBinder binderContents
-  targetDirExists <- doesDirectoryExist targetDir
-  if not targetDirExists 
-    then createDirectory targetDir
-    else return ()
+  createTargetIfNecessary targetDir
   let binderOut = targetDir <> "/" <> binderName
   fileExists <- doesFileExist binderOut
   if fileExists
@@ -47,7 +45,7 @@ build = do
   T.writeFile binderOut . renderHtml $ binder
 
 mkStyles :: IO ()
-mkStyles = writeStyle (targetDir <> "/style.css") defaultStyle
+mkStyles = createTargetIfNecessary targetDir >> writeStyle (targetDir <> "/style.css") defaultStyle
 
 init :: IO ()
 init = do 
@@ -57,3 +55,10 @@ init = do
     else do
       createDirectory targetDir
       mkStyles
+
+createTargetIfNecessary :: FilePath -> IO ()
+createTargetIfNecessary path = do
+  targetDirExists <- doesDirectoryExist targetDir     
+  if targetDirExists 
+    then return () 
+    else createDirectory targetDir
