@@ -25,26 +25,26 @@ configFileName = "config.yaml"
 
 collectBinder :: IO (Binder (Maybe Object) (T.Text, T.Text))
 collectBinder = do
-  base         <- getCurrentDirectory
-  allContents  <- getDirectoryContents base  
-  let contents = drop 2 allContents
-  directories  <- filterM doesDirectoryExist contents
-  noteNames    <- filterM (return . isInfixOf ".note") contents 
-  noteContents <- sequence . fmap T.readFile $ noteNames
-  let notes    = zip (fmap (T.pack . reverse . drop 5 . reverse) noteNames) noteContents
-  configExists <- doesFileExist configFileName
-  config       <- if configExists then putStrLn "gettign conf" >> decodeFile configFileName else return Nothing                
-  subBinders   <- mapM (\dir -> setCurrentDirectory (base <> "/" <> dir) 
-                          >> collectBinder 
-                          >>= (\binder -> setCurrentDirectory base 
-                          >> return binder)) directories
+  base          <- getCurrentDirectory
+  allContents   <- getDirectoryContents base  
+  let contents  = drop 2 allContents
+  directories   <- filterM doesDirectoryExist contents
+  let noteNames = filter (isInfixOf ".note" . reverse . take 5 . reverse) contents 
+  noteContents  <- sequence . fmap T.readFile $ noteNames
+  let notes     = zip (fmap (T.pack . reverse . drop 5 . reverse) noteNames) noteContents
+  configExists  <- doesFileExist configFileName
+  config        <- if configExists then putStrLn "gettign conf" >> decodeFile configFileName else return Nothing                
+  subBinders    <- mapM (\dir -> setCurrentDirectory (base <> "/" <> dir) 
+                           >> collectBinder 
+                           >>= (\binder -> setCurrentDirectory base 
+                           >> return binder)) directories
   return $ Binder (T.pack base) config notes subBinders
 
 buildBinder :: Binder (Maybe Object) (T.Text, T.Text) -> Html
 buildBinder binder@(Binder base _ _ _) = 
   let (contents, marks) = unzip (op binder) in mkToC (foldr appendToC mempty contents) <> fold marks where 
   mkNote :: T.Text -> T.Text -> Html
-  mkNote name markdownText = mkSection $ (h2 ! Attr.class_ "note" ! Attr.id (lazyTextValue name) $ toHtml name) <> (markdown def markdownText)
+  mkNote name markdownText = mkSection $ (h1 ! Attr.class_ "note" ! Attr.id (lazyTextValue name) $ toHtml name) <> (markdown def markdownText)
   mkToC contents = (h2 ! Attr.id (textValue "ToC") $ toHtml (T.pack "Table of Contents")) <> (ul ! Attr.id "toc-list"  $ contents)
   mkSection :: Html -> Html
   mkSection = div ! Attr.class_ "section" 
