@@ -31,7 +31,7 @@ collectBinder = do
   base          <- liftIO $ getCurrentDirectory
   allContents   <- liftIO $ getDirectoryContents base  
   let contents  = drop 2 allContents
-  directories   <- liftIO $ filterM doesDirectoryExist contents
+  directories   <- liftIO $ filterM doesDirectoryExist contents 
   let noteNames = filter (isInfixOf ".note" . reverse . take 5 . reverse) contents 
   noteContents  <- liftIO $ sequence . fmap T.readFile $ noteNames
   let notes     = zip (fmap (T.pack . reverse . drop 5 . reverse) noteNames) noteContents
@@ -65,7 +65,11 @@ buildBinder binder@(Binder base _ _ _) =
     fmap (\(name, mark) -> (name, mkNote name mark)) notes <> 
       foldr (\binder acc -> acc ++ op (depth + 1) binder) [] binders
 
+wrapNotes :: Html -> Html
+wrapNotes notes = div ! Attr.id (lazyTextValue "binder-content") $ notes
+
 addHeader :: Html -> Html
 addHeader html = header <> html where 
   header = head $ headerContents
   headerContents = link ! Attr.href "style.css" ! Attr.rel "stylesheet" ! Attr.type_ "text/css" <> title "Binder!"
+  

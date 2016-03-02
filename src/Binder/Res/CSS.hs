@@ -10,17 +10,21 @@ import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T
 import qualified Data.Text as ST
 import           Data.Foldable (fold)
+import           Prelude hiding ((**))
+
+bodyName = "#binder-content"
 
 writeStyle :: FilePath -> T.Text -> IO ()
 writeStyle path style = T.writeFile path style
 
 defaultStyle :: T.Text
-defaultStyle = fold . fmap render $ [bodyStyle, tocStyle, sectionStyle]
+defaultStyle = fold . fmap render $ [bodyStyle, tocStyle, sectionStyle] ++ shiftHTagSize
 
 bodyStyle = binderBody where
-  binderBody = body ? do
+  binderBody = element bodyName ? do
     marginLeft (pct 5)
     marginRight (pct 5)
+    
 
 tocStyle = element ".toc-list" ? do
   marginBottom (pct 2)
@@ -41,3 +45,8 @@ sectionStyle = element ".section" ? do
   paddingBottom (pct 2)
   borderBottom groove (em 0.2) gray
 
+-- this is added so that markdown htags can be slightly more convenient to use while matching
+-- the expected size (removes a single # from each tag)
+shiftHTagSize = zipWith (\tag size -> element bodyName ** tag ? fontSize (em size)) tags fontSizes where
+  tags      = [h1, h2, h3, h4, h5, h6]
+  fontSizes = [1.5, 1.17, 1, 0.83, 0.67, 0.6]

@@ -10,6 +10,7 @@ import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T
 import           System.Directory
 import           Data.Monoid
+import           Data.List (nub)
 import           Prelude hiding (init)
 import           Options.Applicative
 import           Control.Monad.Reader
@@ -37,8 +38,8 @@ runWithOpts (App False False v) =
 build :: ReaderT Bool IO [Css]
 build = do 
   verbose        <- ask
-  ((binderContents, styles), _) <- liftIO $ runStateT collectBinder 0
-  let binder = addHeader $ buildBinder binderContents
+  ((binderContents, styles), _) <- liftIO $ runStateT collectBinder 0    
+  let binder = addHeader . wrapNotes . buildBinder $ binderContents
   liftIO $ createTargetIfNecessary targetDir
   let binderOut = targetDir <> "/" <> binderName
   fileExists <- liftIO $ doesFileExist binderOut
@@ -50,7 +51,7 @@ mkStyles :: [Css] -> IO ()
 mkStyles styles = 
   createTargetIfNecessary targetDir 
   >> writeStyle stylesheet defaultStyle
-  >> mapM_ (T.appendFile stylesheet . render) styles
+  >> mapM_ (T.appendFile stylesheet) (nub . fmap render $ styles)
   where
     stylesheet = targetDir <> "/style.css"
 
