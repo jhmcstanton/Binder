@@ -15,7 +15,7 @@ import           Control.Monad
 import           Control.Monad.State
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T (readFile)
-import           Data.List (isInfixOf, intercalate)
+import           Data.List (isInfixOf, intercalate, sortOn)
 import           Data.Monoid
 import           Data.Yaml
 import           Text.Markdown
@@ -36,8 +36,10 @@ collectBinder :: StateT Int IO (Binder (Maybe Object) (T.Text, T.Text), [Css])
 collectBinder = do
   depth         <- get
   base          <- liftIO $ getCurrentDirectory
-  allContents   <- liftIO $ getDirectoryContents base  
-  let contents  = drop 2 allContents
+  allContents   <- liftIO $ do contents <- getDirectoryContents base -- getDirectoryContents base 
+                               modTimes <- mapM getModificationTime contents
+                               return $ zip contents modTimes
+  let contents  = fmap fst . sortOn snd . drop 2 $ allContents  
   directories   <- liftIO $ filterM doesDirectoryExist contents 
   let noteNames = filter (isInfixOf ".note" . reverse . take 5 . reverse) contents 
   noteContents  <- liftIO $ sequence . fmap T.readFile $ noteNames
