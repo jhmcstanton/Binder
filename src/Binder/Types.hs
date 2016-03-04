@@ -5,6 +5,7 @@ module Binder.Types (Binder (Binder), Settings (Settings)) where
 import           System.Directory
 import qualified Data.Text.Lazy as T
 import           Data.Yaml
+import           Data.Foldable
 
 --newtype Note   = Note T.Text
 --newtype Config = Config T.Text

@@ -1,5 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Binder.File where
+module Binder.File 
+       ( collectBinder
+       , buildBinder
+       , wrapNotes
+       , addHeader
+       ) 
+where
 
 import Binder.Types
 import Binder.Res.CSS
@@ -9,7 +15,7 @@ import           Control.Monad
 import           Control.Monad.State
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T (readFile)
-import           Data.List (isInfixOf)
+import           Data.List (isInfixOf, intercalate)
 import           Data.Monoid
 import           Data.Yaml
 import           Text.Markdown
@@ -20,6 +26,7 @@ import           Text.Blaze
 import           Data.Monoid
 import           Data.Foldable
 import           Prelude hiding (head, div)
+import           Data.Char (toUpper)
 
 import Debug.Trace --remove
 
@@ -47,10 +54,10 @@ collectBinder = do
 
 buildBinder :: Binder (Maybe Object) (T.Text, T.Text) -> Html
 buildBinder binder@(Binder base _ _ _) = 
-  let (contents, marks) = unzip (op 0 binder) in mkToC (foldr (appendToC 0) mempty contents) <> fold marks where 
+  let (contents, marks) = op binder in mkToC contents <> marks ! Attr.id (stringValue notesName) where 
   mkNote :: T.Text -> T.Text -> Html
   mkNote name markdownText = mkSection $ (h1 ! Attr.class_ "note" ! Attr.id (lazyTextValue name) $ toHtml name) <> (markdown def markdownText)
-  mkToC contents = (h2 ! Attr.id (textValue "ToC") $ toHtml (T.pack "Table of Contents")) <> (ul ! Attr.class_ "toc-list"  $ contents)
+  mkToC contents = (h2 ! Attr.id (textValue "ToC") $ toHtml (T.pack "Table of Contents")) <> (ol ! Attr.class_ "toc-list"  $ contents)
   mkSection :: Html -> Html
   mkSection = div ! Attr.class_ "section" 
   mkJump :: T.Text -> T.Text
@@ -60,10 +67,17 @@ buildBinder binder@(Binder base _ _ _) =
      ! Attr.class_ (stringValue $ innerTocName depth)
      ! Attr.href (lazyTextValue $ mkJump name ) $ li 
      ! Attr.class_ "ToC_entry" $ toHtml name) <> currentToC
-  op :: Int -> Binder (Maybe Object) (T.Text, T.Text) -> [(T.Text, Html)]
-  op depth (Binder _ _ notes binders) = 
-    fmap (\(name, mark) -> (name, mkNote name mark)) notes <> 
-      foldr (\binder acc -> acc ++ op (depth + 1) binder) [] binders
+  op :: Binder (Maybe Object) (T.Text, T.Text) -> (Html, Html)
+  op (Binder base _ []    binders) = 
+    foldr (\(a, b) (toc, notes) -> (toc <> a, notes <> b)) (mempty, mempty) . fmap op $ binders
+  op (Binder base _ notes binders) = (titleli <> (ol $ toc0 <> ol toc1), h1 title <> notes0 <> notes1) where
+   titleli        = li $ toHtml title 
+   title          = toHtml . T.pack . cap . reverse . takeWhile (/= '/') . reverse . T.unpack $ base
+   cap (c : cs)   = toUpper c : cs
+   (toc0, notes0) = 
+     foldr (\(name, mark) (toc, notes) -> (toc <> (a ! Attr.href (lazyTextValue . mkJump $ name) $ li (toHtml name)) , notes <> mkNote name mark)) 
+       (mempty, mempty) notes
+   (toc1, notes1) = foldr (\(toc0, notes0) (toc1, notes1) -> (toc0 <> toc1, notes0 <> notes1)) (mempty, mempty) . fmap op $ binders  
 
 wrapNotes :: Html -> Html
 wrapNotes notes = div ! Attr.id (lazyTextValue "binder-content") $ notes
