@@ -29,7 +29,7 @@ writeStyle :: FilePath -> T.Text -> IO ()
 writeStyle path style = T.writeFile path style
 
 defaultStyle :: T.Text
-defaultStyle = fold . fmap render $ [bodyStyle, tocStyle, sectionStyle, tocNoStyle] ++ shiftHTagSize
+defaultStyle = fold . fmap render $ [bodyStyle, tocStyle, sectionStyle, tocNoStyle, noteNameHeader] ++ shiftHTagSize
 
 bodyStyle = binderBody where
   binderBody = element bodyName ? do
@@ -65,3 +65,9 @@ shiftHTagSize = zipWith (\tag size -> element (ST.pack $ '#' : notesName) ** tag
 tocNoStyle :: Css
 tocNoStyle = element ".list-no-style" ? do
   listStyleType none
+
+noteNameHeader :: Css
+noteNameHeader = element ".note-name-header" ? do
+    fontStyle italic
+--  textDecoration underline
+
