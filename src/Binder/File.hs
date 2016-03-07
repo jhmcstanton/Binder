@@ -39,7 +39,7 @@ collectBinder = do
   allContents   <- liftIO $ do contents <- getDirectoryContents base 
                                modTimes <- mapM getModificationTime contents
                                return $ zip contents modTimes
-  let contents  = fmap fst . sortOn snd . drop 2 $ allContents  
+  let contents  = fmap fst . reverse . sortOn snd . drop 2 $ allContents  
   directories   <- liftIO $ filterM doesDirectoryExist contents 
   let noteNames = filter (isInfixOf ".note" . reverse . take 5 . reverse) contents 
   noteContents  <- liftIO $ sequence . fmap T.readFile $ noteNames
