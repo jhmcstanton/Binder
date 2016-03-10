@@ -28,7 +28,6 @@ import           Data.Foldable
 import           Prelude hiding (head, div)
 import           Data.Char (toUpper)
 
-import Debug.Trace --remove
 
 configFileName = "config.yaml"
 
@@ -85,8 +84,14 @@ buildBinder binder@(Binder base _ _ _) =
 wrapNotes :: Html -> Html
 wrapNotes notes = div ! Attr.id (lazyTextValue "binder-content") $ notes
 
-addHeader :: Html -> Html
-addHeader html = header <> html where 
+addHeader :: [FilePath] -> Html -> Html
+addHeader extraScripts html = header <> html where 
+  scriptTag = script ! Attr.type_ "text/javascipt" ! Attr.async mempty
   header = head $ headerContents
-  headerContents = link ! Attr.href "style.css" ! Attr.rel "stylesheet" ! Attr.type_ "text/css" <> title "Binder!"
+  headerContents = link ! Attr.href "style.css" ! Attr.rel "stylesheet" ! Attr.type_ "text/css" 
+    <> title "Binder!"
+    -- extra scripts will include a local copy of mathjax to load, which will be overridden later 
+    -- by the cdn copy if the servers are available
+    <> fold (fmap (\sname -> scriptTag ! Attr.src (stringValue sname) $ mempty) extraScripts)
+    <> (scriptTag ! Attr.src "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-MML-AM_CHTML" $ mempty)
   

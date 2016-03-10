@@ -4,6 +4,7 @@ module Binder.Commands (entry) where
 import           Binder.File
 import           Binder.Res.CSS 
 import           Binder.Commands.Parser
+import           Paths_Binder
 
 import           Text.Blaze.Html.Renderer.Text
 import qualified Data.Text.Lazy as T
@@ -38,8 +39,9 @@ runWithOpts (App False False v) =
 build :: ReaderT Bool IO [Css]
 build = do 
   verbose        <- ask
-  ((binderContents, styles), _) <- liftIO $ runStateT collectBinder 0    
-  let binder = addHeader . wrapNotes . buildBinder $ binderContents
+  ((binderContents, styles), _) <- liftIO $ runStateT collectBinder 0
+  mathjax <- liftIO $ getDataFileName "res/MathJax/MathJax.js"
+  let binder = addHeader [mathjax] . wrapNotes . buildBinder $ binderContents
   liftIO $ createTargetIfNecessary targetDir
   let binderOut = targetDir <> "/" <> binderName
   fileExists <- liftIO $ doesFileExist binderOut
