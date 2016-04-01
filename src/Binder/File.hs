@@ -18,6 +18,7 @@ import qualified Data.Text.Lazy.IO as T (readFile)
 import           Data.List (isInfixOf, intercalate, sortOn)
 import           Data.Monoid
 import           Data.Yaml
+import           Data.Map.Lazy (union)
 import           Text.Markdown
 import           Text.Blaze.Html
 import           Text.Blaze.Html5
@@ -30,6 +31,7 @@ import           Data.Char (toUpper)
 
 
 configFileName = "config.yaml"
+mathJaxUrl     = "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-MML-AM_CHTML"
 
 collectBinder :: StateT Int IO (Binder (Maybe Object) (T.Text, T.Text), [Css])
 collectBinder = do
@@ -55,7 +57,8 @@ collectBinder = do
 
 buildBinder :: Binder (Maybe Object) (T.Text, T.Text) -> Html
 buildBinder binder@(Binder base _ _ _) = 
-  let (contents, marks) = op binder in mkToC contents <> marks ! Attr.id (stringValue notesName) where 
+  let (contents, marks) = op binder in mkToC contents <> marks ! Attr.id (stringValue notesName) where  
+  def' = def { msFencedHandlers = codeFencedHandler "$$"  `union` msFencedHandlers def }
   mkNote :: T.Text -> T.Text -> Html
   mkNote name markdownText = mkSection $ (h1 ! Attr.class_ "note-name-header" ! Attr.id (lazyTextValue name) $ toHtml name) <> (markdown def markdownText)
   mkToC contents = (h2 ! Attr.id (textValue "ToC") $ toHtml (T.pack "Table of Contents")) <> (ol ! Attr.class_ "toc-list"  $ contents)
@@ -82,16 +85,16 @@ buildBinder binder@(Binder base _ _ _) =
    (toc1, notes1) = foldr (\(toc0, notes0) (toc1, notes1) -> (toc0 <> toc1, notes0 <> notes1)) (mempty, mempty) . fmap op $ binders  
 
 wrapNotes :: Html -> Html
-wrapNotes notes = div ! Attr.id (lazyTextValue "binder-content") $ notes
+wrapNotes notes = body $ div ! Attr.id (lazyTextValue "binder-content") $ notes
 
 addHeader :: [FilePath] -> Html -> Html
 addHeader extraScripts html = header <> html where 
-  scriptTag = script ! Attr.type_ "text/javascipt" ! Attr.async mempty
+  scriptTag = script ! Attr.type_ "text/javascript"
   header = head $ headerContents
-  headerContents = link ! Attr.href "style.css" ! Attr.rel "stylesheet" ! Attr.type_ "text/css" 
+  headerContents = link ! Attr.href "style.css" ! Attr.rel "stylesheet" ! Attr.type_ "text/css"
     <> title "Binder!"
     -- extra scripts will include a local copy of mathjax to load, which will be overridden later 
     -- by the cdn copy if the servers are available
     <> fold (fmap (\sname -> scriptTag ! Attr.src (stringValue sname) $ mempty) extraScripts)
-    <> (scriptTag ! Attr.src "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-MML-AM_CHTML" $ mempty)
-  
+    <> (scriptTag ! Attr.async mempty 
+                  ! Attr.src (lazyTextValue mathJaxUrl) $ mempty)

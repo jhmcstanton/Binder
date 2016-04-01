@@ -11,3 +11,9 @@
       1. Creation date of subdirectories
       1. Modification date of notes
 
+
+1. Add diagrams support
+
+   Possibly add a new fenced renderer that can take a raw
+   [diagrams](http://www.hackage.haskell.org/package/diagrams) function
+   and return the rendered result as an image. 
