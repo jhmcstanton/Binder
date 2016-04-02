@@ -19,7 +19,8 @@ import           Data.List (isInfixOf, intercalate, sortOn)
 import           Data.Monoid
 import           Data.Yaml
 import           Data.Map.Lazy (union)
-import           Text.Markdown
+import           Text.Pandoc
+import           Text.Pandoc.Error (handleError)
 import           Text.Blaze.Html
 import           Text.Blaze.Html5
 import qualified Text.Blaze.Html5.Attributes as Attr
@@ -58,9 +59,9 @@ collectBinder = do
 buildBinder :: Binder (Maybe Object) (T.Text, T.Text) -> Html
 buildBinder binder@(Binder base _ _ _) = 
   let (contents, marks) = op binder in mkToC contents <> marks ! Attr.id (stringValue notesName) where  
-  def' = def { msFencedHandlers = codeFencedHandler "$$"  `union` msFencedHandlers def }
   mkNote :: T.Text -> T.Text -> Html
-  mkNote name markdownText = mkSection $ (h1 ! Attr.class_ "note-name-header" ! Attr.id (lazyTextValue name) $ toHtml name) <> (markdown def markdownText)
+  mkNote name markdownText = mkSection $ (h1 ! Attr.class_ "note-name-header" ! Attr.id (lazyTextValue name) $ toHtml name)
+    <> (writeHtml def . handleError . readMarkdown def . T.unpack $ markdownText)
   mkToC contents = (h2 ! Attr.id (textValue "ToC") $ toHtml (T.pack "Table of Contents")) <> (ol ! Attr.class_ "toc-list"  $ contents)
   mkSection :: Html -> Html
   mkSection = div ! Attr.class_ "section" 
