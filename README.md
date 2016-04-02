@@ -2,6 +2,43 @@
 
 Binder is a tool that compiles notes into a single file.
 
+## Setup
+
+### Using Stack
+
+The easiest way to setup Binder is using [stack](http://docs.haskellstack.org/en/stable/README/).  Stack has sane
+defaults for sandboxing haskell projects. It also automatically downloads a compatible version of GHC for the project.
+
+```
+cd path/to/store/repository
+git clone https://github.com/jhstanton/Binder.git
+cd Binder
+stack install
+```
+
+You may want to add the folder that stack copies binaries to to your PATH for convenience. For example,
+the path on my machine is `/home/my-user/.local/bin`. You can add it to your PATH with
+
+```
+export PATH=$PATH:/your/stack/path
+```
+
+in your `~/.bashrc` or `~/.zshrc`
+
+### Using Cabal
+
+Alternatively, you can use cabal to build the binary. The process is similar, but does require an additional sandboxing
+step to not mess up global packages. Cabal also requires that GHC is installed.
+
+```
+cd path/to/store/repository
+git clone https://github.com/jhstanton/Binder.git
+cd Binder
+cabal update
+cabal sandbox init
+cabal install
+```
+
 ## Current State
 
 Binder currently compiles all markdown files with extension `.note` from the current directory and all subdirectories
