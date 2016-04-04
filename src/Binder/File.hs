@@ -7,20 +7,22 @@ module Binder.File
        ) 
 where
 
-import Binder.Types
-import Binder.Res.CSS
+import           Binder.Types
+import           Binder.Res.CSS
+import           Binder.Common
 
 import           System.Directory
 import           Control.Monad
 import           Control.Monad.State
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T (readFile)
-import           Data.List (isInfixOf, intercalate, sortOn)
+import           Data.List (isInfixOf, intercalate, sortOn, foldl')
 import           Data.Monoid
 import           Data.Yaml
 import           Data.Map.Lazy (union)
 import           Text.Pandoc
 import           Text.Pandoc.Error (handleError)
+--import           Text.Pandoc.Diagrams                 
 import           Text.Blaze.Html
 import           Text.Blaze.Html5
 import qualified Text.Blaze.Html5.Attributes as Attr
@@ -33,6 +35,7 @@ import           Data.Char (toUpper)
 
 configFileName = "config.yaml"
 mathJaxUrl     = "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-MML-AM_CHTML"
+--diagramOptions = Opts "" imageDir
 
 collectBinder :: StateT Int IO (Binder (Maybe Object) (T.Text, T.Text), [Css])
 collectBinder = do
@@ -45,7 +48,7 @@ collectBinder = do
   directories   <- liftIO $ filterM doesDirectoryExist contents 
   let noteNames = filter (isInfixOf ".note" . reverse . take 5 . reverse) contents 
   noteContents  <- liftIO $ sequence . fmap T.readFile $ noteNames
-  let notes     = zip (fmap (T.pack . reverse . drop 5 . reverse) noteNames) noteContents
+  let notes     = zip (fmap (T.pack . fileNameOps) noteNames) noteContents
   configExists  <- liftIO $ doesFileExist configFileName
   config        <- liftIO $ if configExists then putStrLn "getting conf" >> decodeFile configFileName else return Nothing                
   stateResults  <- liftIO $ mapM (\dir -> setCurrentDirectory (base <> "/" <> dir) 
@@ -55,6 +58,16 @@ collectBinder = do
   let (subBindersAndStyles, _ ) = unzip stateResults
   let (subBinders, styles     ) = unzip subBindersAndStyles
   return $ (Binder (T.pack base) config notes subBinders, generateTocStyle depth : fold styles)
+
+-- additional collectBinder helpers
+dropExtension = reverse . drop 5 . reverse
+_toSpace '_'  = ' '
+_toSpace c    = c
+capitalize :: String -> String
+capitalize    = snd . foldl' (\(prevC, name) curC -> case prevC of
+                                                       ' ' -> (curC, name <> [toUpper curC])
+                                                       _   -> (curC, name <> [curC])) (' ', "")
+fileNameOps = capitalize . fmap _toSpace . dropExtension
 
 buildBinder :: Binder (Maybe Object) (T.Text, T.Text) -> Html
 buildBinder binder@(Binder base _ _ _) = 
