@@ -14,6 +14,7 @@ import           Binder.Common
 import           System.Directory
 import           Control.Monad
 import           Control.Monad.State
+import qualified Control.Monad.Writer as W
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T (readFile)
 import           Data.List (isInfixOf, intercalate, sortOn, foldl')
@@ -35,7 +36,6 @@ import           Data.Char (toUpper)
 
 configFileName = "config.yaml"
 mathJaxUrl     = "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-MML-AM_CHTML"
---diagramOptions = Opts "" imageDir
 
 collectBinder :: StateT Int IO (Binder (Maybe Object) (T.Text, T.Text), [Css])
 collectBinder = do
@@ -69,9 +69,9 @@ capitalize    = snd . foldl' (\(prevC, name) curC -> case prevC of
                                                        _   -> (curC, name <> [curC])) (' ', "")
 fileNameOps = capitalize . fmap _toSpace . dropExtension
 
-buildBinder :: Binder (Maybe Object) (T.Text, T.Text) -> Html
+buildBinder :: Binder (Maybe Object) (T.Text, T.Text) -> W.Writer [a] Html
 buildBinder binder@(Binder base _ _ _) = 
-  let (contents, marks) = op binder in mkToC contents <> marks ! Attr.id (stringValue notesName) where  
+  let (contents, marks) = op binder in return $ mkToC contents <> marks ! Attr.id (stringValue notesName) where  
   mkNote :: T.Text -> T.Text -> Html
   mkNote name markdownText = mkSection $ (h1 ! Attr.class_ "note-name-header" ! Attr.id (lazyTextValue name) $ toHtml name)
     <> (writeHtml def . handleError . readMarkdown def . T.unpack $ markdownText)

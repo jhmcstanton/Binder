@@ -18,6 +18,7 @@ import           Prelude hiding (init)
 import           Options.Applicative
 import           Control.Monad.Reader
 import           Control.Monad.State
+import           Control.Monad.Writer (runWriter)
 
 -- pretty much all of this needs to be refactored for a reader environment
 
@@ -39,7 +40,8 @@ build :: ReaderT Bool IO [Css]
 build = do 
   verbose        <- ask
   ((binderContents, styles), _) <- liftIO $ runStateT collectBinder 0
-  let binder = docTypeHtml . addHeader [] . wrapNotes . buildBinder $ binderContents
+  let (binderContent, diags) = runWriter . buildBinder $ binderContents
+  let binder = docTypeHtml . addHeader [] . wrapNotes $ binderContent
   liftIO $ createTargetIfNecessary targetDir
   liftIO $ createTargetIfNecessary imageDir
   let binderOut = targetDir <> "/" <> binderName
