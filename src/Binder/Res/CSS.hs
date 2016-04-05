@@ -13,6 +13,7 @@ where
 
 import           Clay
 import           Clay.Geometry
+import           Clay.Background (sideCenter)
 import           Clay.List
 import           Clay.Border
 import           Data.Monoid
@@ -29,7 +30,7 @@ writeStyle :: FilePath -> T.Text -> IO ()
 writeStyle path style = T.writeFile path style
 
 defaultStyle :: T.Text
-defaultStyle = fold . fmap render $ [bodyStyle, tocStyle, sectionStyle, tocNoStyle, noteNameHeader] ++ shiftHTagSize
+defaultStyle = fold . fmap render $ [bodyStyle, tocStyle, sectionStyle, tocNoStyle, noteNameHeader, imageStyle] ++ shiftHTagSize
 
 bodyStyle = binderBody where
   binderBody = element bodyName ? do
@@ -71,3 +72,11 @@ noteNameHeader = element ".note-name-header" ? do
     fontStyle italic
 --  textDecoration underline
 
+
+imageStyle :: Css
+imageStyle = do
+  img ?
+    do sym2 margin (px 0) auto
+       display block
+  element ".caption" ? 
+    do textAlign $ alignSide sideCenter
