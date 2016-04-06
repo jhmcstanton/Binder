@@ -39,6 +39,12 @@ cabal sandbox init
 cabal install
 ```
 
+## Usage
+
+Binder usage is straight forward. `cd` to the root directory of your notes and simply run `binder`. This generates a
+`/target` directory with the styles and html output - just open the `binder.html` file in a web browser to view the
+results.
+
 ## Current State
 
 Binder currently compiles all markdown files with extension `.note` from the current directory and all subdirectories

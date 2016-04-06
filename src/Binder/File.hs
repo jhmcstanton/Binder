@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts  #-}
 module Binder.File 
        ( collectBinder
        , buildBinder
@@ -10,11 +11,13 @@ where
 import           Binder.Types
 import           Binder.Res.CSS
 import           Binder.Common
+import           Binder.File.Filters.Diagrams
 
 import           System.Directory
 import           Control.Monad
 import           Control.Monad.State
 import qualified Control.Monad.Writer as W
+import           Control.Monad.Reader
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T (readFile)
 import           Data.List (isInfixOf, intercalate, sortOn, foldl')
@@ -69,34 +72,44 @@ capitalize    = snd . foldl' (\(prevC, name) curC -> case prevC of
                                                        _   -> (curC, name <> [curC])) (' ', "")
 fileNameOps = capitalize . fmap _toSpace . dropExtension
 
-buildBinder :: Binder (Maybe Object) (T.Text, T.Text) -> W.Writer [a] Html
+buildBinder :: Binder (Maybe Object) (T.Text, T.Text) -> (Html, [(FilePath, DiagramOpts)])
 buildBinder binder@(Binder base _ _ _) = 
-  let (contents, marks) = op binder in return $ mkToC contents <> marks ! Attr.id (stringValue notesName) where  
-  mkNote :: T.Text -> T.Text -> Html
-  mkNote name markdownText = mkSection $ (h1 ! Attr.class_ "note-name-header" ! Attr.id (lazyTextValue name) $ toHtml name)
-    <> (writeHtml def . handleError . readMarkdown def . T.unpack $ markdownText)
-  mkToC contents = (h2 ! Attr.id (textValue "ToC") $ toHtml (T.pack "Table of Contents")) <> (ol ! Attr.class_ "toc-list"  $ contents)
-  mkSection :: Html -> Html
-  mkSection = div ! Attr.class_ "section" 
-  mkJump :: T.Text -> T.Text
-  mkJump name = "./binder.html#" <> name -- this will probably need to be updated
-  appendToC :: Int -> T.Text -> Html -> Html -- at some point this will need to have section #s   
-  appendToC depth name currentToC =  (a 
-     ! Attr.class_ (stringValue $ innerTocName depth)
-     ! Attr.href (lazyTextValue $ mkJump name ) $ li 
-     ! Attr.class_ "ToC_entry" $ toHtml name) <> currentToC
-  op :: Binder (Maybe Object) (T.Text, T.Text) -> (Html, Html)
-  op (Binder base _ []    binders) = 
-    foldr (\(a, b) (toc, notes) -> (toc <> a, notes <> b)) (mempty, mempty) . fmap op $ binders
-  op (Binder base _ notes binders) = (titleli <> (ol $ toc0 <> ol toc1), h1 title <> notes0 <> notes1) where
-   titleli        = li $ toHtml title 
-   title          = toHtml . T.pack . cap . reverse . takeWhile (/= '/') . reverse . T.unpack $ base
-   cap (c : cs)   = toUpper c : cs
-   (toc0, notes0) = 
-     foldr (\(name, mark) (toc, notes) -> (toc <> (a ! Attr.href (lazyTextValue . mkJump $ name) $ li $ (toHtml name)) , 
-                                           notes <> mkNote name mark)) 
-       (mempty, mempty) notes
-   (toc1, notes1) = foldr (\(toc0, notes0) (toc1, notes1) -> (toc0 <> toc1, notes0 <> notes1)) (mempty, mempty) . fmap op $ binders  
+  let (contents, marks, _) = op binder in
+  undefined --  mkToC contents <> marks ! Attr.id (stringValue notesName)
+  where
+    runHandler :: UniqueId -> Pandoc -> (Pandoc, [(FilePath, DiagramOpts)], UniqueId)
+    runHandler n (Pandoc m blocks) = (Pandoc m blocks', imgs, uid) where
+      ((blocks', imgs), uid) = runState (W.runWriterT (runReaderT (runBlockHandler $ mapM insertDiagrams blocks) imageDir)) n
+    mkNote :: UniqueId -> T.Text -> T.Text -> (Html, [(FilePath, DiagramOpts)], UniqueId)
+    mkNote uid name markdownText = (mkSection $ (h1 ! Attr.class_ "note-name-header" ! Attr.id (lazyTextValue name) $ toHtml name)
+      <> (writeHtml def pandoc'), imgs, uid')
+      where
+        (pandoc', imgs, uid') = runHandler uid . handleError . readMarkdown def . T.unpack $ markdownText
+    mkToC contents = (h2 ! Attr.id (textValue "ToC") $ toHtml (T.pack "Table of Contents")) <> (ol ! Attr.class_ "toc-list"  $ contents)
+    mkSection :: Html -> Html
+    mkSection = div ! Attr.class_ "section" 
+    mkJump :: T.Text -> T.Text
+    mkJump name = "./binder.html#" <> name -- this will probably need to be updated
+    appendToC :: Int -> T.Text -> Html -> Html -- at some point this will need to have section #s   
+    appendToC depth name currentToC =  (a 
+                                        ! Attr.class_ (stringValue $ innerTocName depth)
+                                        ! Attr.href (lazyTextValue $ mkJump name ) $ li 
+                                        ! Attr.class_ "ToC_entry" $ toHtml name) <> currentToC
+    op :: Binder (Maybe Object) (T.Text, T.Text) -> (Html, Html, [(FilePath, DiagramOpts)])
+    op (Binder base _ []    binders) = 
+      foldr (\(a, b, imgs) (toc, notes, imgs') -> (toc <> a, notes <> b, imgs <> imgs')) (mempty, mempty, mempty) . fmap op $ binders
+    op (Binder base _ notes binders) = (titleli <> (ol $ toc0 <> ol toc1), h1 title <> notes0 <> notes1, imgs0 <> imgs1)
+      where
+        titleli        = li $ toHtml title 
+        title          = toHtml . T.pack . cap . reverse . takeWhile (/= '/') . reverse . T.unpack $ base
+        cap (c : cs)   = toUpper c : cs
+        (toc0, notes0, imgs0, _) = 
+          foldr (\(name, mark) (toc, notes, imgs, uid) -> let (note', imgs', uid') = mkNote uid name mark in
+                  (toc <> (a ! Attr.href (lazyTextValue . mkJump $ name) $ li $ (toHtml name)), 
+                   notes <> note', imgs <> imgs', uid')) (mempty, mempty, mempty, 0) notes
+        (toc1, notes1, imgs1) =
+          foldr (\(toc0, notes0, imgs) (toc1, notes1, imgs') -> (toc0 <> toc1, notes0 <> notes1, imgs <> imgs'))
+            (mempty, mempty, mempty) . fmap op $ binders  
 
 wrapNotes :: Html -> Html
 wrapNotes notes = body $ div ! Attr.id (lazyTextValue "binder-content") $ notes

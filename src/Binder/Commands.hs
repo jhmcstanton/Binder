@@ -19,6 +19,7 @@ import           Options.Applicative
 import           Control.Monad.Reader
 import           Control.Monad.State
 import           Control.Monad.Writer (runWriter)
+import           Control.Monad.Reader (runReader)
 
 -- pretty much all of this needs to be refactored for a reader environment
 
@@ -40,11 +41,11 @@ build :: ReaderT Bool IO [Css]
 build = do 
   verbose        <- ask
   ((binderContents, styles), _) <- liftIO $ runStateT collectBinder 0
-  let (binderContent, diags) = runWriter . buildBinder $ binderContents
+  let (binderContent, diags) = buildBinder binderContents
   let binder = docTypeHtml . addHeader [] . wrapNotes $ binderContent
   liftIO $ createTargetIfNecessary targetDir
   liftIO $ createTargetIfNecessary imageDir
-  let binderOut = targetDir <> "/" <> binderName
+  let binderOut = targetDir </> binderName
   fileExists <- liftIO $ doesFileExist binderOut
   runIf fileExists (runIf verbose (liftIO $ putStrLn "Cleaning previous binder.." >> removeFile binderOut))
   liftIO $ T.writeFile binderOut . renderHtml $ binder
@@ -56,9 +57,9 @@ mkStyles styles =
   >> writeStyle stylesheet defaultStyle
   >> mapM_ (T.appendFile stylesheet) (nub . fmap render $ styles)
   where
-    stylesheet = targetDir <> "/style.css"
+    stylesheet = targetDir </> "style.css"
 
-writeDefaultStyle = writeStyle (targetDir <> "/style.css") defaultStyle
+writeDefaultStyle = writeStyle (targetDir </> "style.css") defaultStyle
 
 init :: ReaderT Bool IO ()
 init = do 
