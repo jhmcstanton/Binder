@@ -74,8 +74,8 @@ fileNameOps = capitalize . fmap _toSpace . dropExtension
 
 buildBinder :: Binder (Maybe Object) (T.Text, T.Text) -> (Html, [(FilePath, DiagramOpts)])
 buildBinder binder@(Binder base _ _ _) = 
-  let (contents, marks, _) = op binder in
-  undefined --  mkToC contents <> marks ! Attr.id (stringValue notesName)
+  let (contents, marks, imgs) = op binder in
+  (mkToC contents <> marks ! Attr.id (stringValue notesName), imgs)
   where
     runHandler :: UniqueId -> Pandoc -> (Pandoc, [(FilePath, DiagramOpts)], UniqueId)
     runHandler n (Pandoc m blocks) = (Pandoc m blocks', imgs, uid) where
