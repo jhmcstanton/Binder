@@ -74,7 +74,7 @@ fileNameOps = capitalize . fmap _toSpace . dropExtension
 
 buildBinder :: Binder (Maybe Object) (T.Text, T.Text) -> (Html, [(FilePath, DiagramOpts)])
 buildBinder binder@(Binder base _ _ _) = 
-  let (contents, marks, imgs) = op binder in
+  let (contents, marks, imgs, _) = op 0 binder in
   (mkToC contents <> marks ! Attr.id (stringValue notesName), imgs)
   where
     runHandler :: UniqueId -> Pandoc -> (Pandoc, [(FilePath, DiagramOpts)], UniqueId)
@@ -95,21 +95,22 @@ buildBinder binder@(Binder base _ _ _) =
                                         ! Attr.class_ (stringValue $ innerTocName depth)
                                         ! Attr.href (lazyTextValue $ mkJump name ) $ li 
                                         ! Attr.class_ "ToC_entry" $ toHtml name) <> currentToC
-    op :: Binder (Maybe Object) (T.Text, T.Text) -> (Html, Html, [(FilePath, DiagramOpts)])
-    op (Binder base _ []    binders) = 
-      foldr (\(a, b, imgs) (toc, notes, imgs') -> (toc <> a, notes <> b, imgs <> imgs')) (mempty, mempty, mempty) . fmap op $ binders
-    op (Binder base _ notes binders) = (titleli <> (ol $ toc0 <> ol toc1), h1 title <> notes0 <> notes1, imgs0 <> imgs1)
+    op :: UniqueId -> Binder (Maybe Object) (T.Text, T.Text) -> (Html, Html, [(FilePath, DiagramOpts)], UniqueId)
+    op uid (Binder base _ []    binders) = 
+      foldr (\(a, b, imgs, uid) (toc, notes, imgs', uid') -> (toc <> a, notes <> b, imgs <> imgs', max uid uid'))
+        (mempty, mempty, mempty, 0) . fmap (op uid) $ binders
+    op uid (Binder base _ notes binders) = (titleli <> (ol $ toc0 <> ol toc1), h1 title <> notes0 <> notes1, imgs0 <> imgs1, uid'')
       where
         titleli        = li $ toHtml title 
         title          = toHtml . T.pack . cap . reverse . takeWhile (/= '/') . reverse . T.unpack $ base
         cap (c : cs)   = toUpper c : cs
-        (toc0, notes0, imgs0, _) = 
+        (toc0, notes0, imgs0, uid') = 
           foldr (\(name, mark) (toc, notes, imgs, uid) -> let (note', imgs', uid') = mkNote uid name mark in
                   (toc <> (a ! Attr.href (lazyTextValue . mkJump $ name) $ li $ (toHtml name)), 
-                   notes <> note', imgs <> imgs', uid')) (mempty, mempty, mempty, 0) notes
-        (toc1, notes1, imgs1) =
-          foldr (\(toc0, notes0, imgs) (toc1, notes1, imgs') -> (toc0 <> toc1, notes0 <> notes1, imgs <> imgs'))
-            (mempty, mempty, mempty) . fmap op $ binders  
+                   notes <> note', imgs <> imgs', uid')) (mempty, mempty, mempty, uid) notes
+        (toc1, notes1, imgs1, uid'') =
+          foldr (\(toc0, notes0, imgs, uid) (toc1, notes1, imgs', uid') -> (toc0 <> toc1, notes0 <> notes1, imgs <> imgs', max uid uid'))
+            (mempty, mempty, mempty, max uid uid') . fmap (op uid') $ binders  
 
 wrapNotes :: Html -> Html
 wrapNotes notes = body $ div ! Attr.id (lazyTextValue "binder-content") $ notes

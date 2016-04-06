@@ -75,6 +75,7 @@ insertDiagrams block@(CodeBlock (ident, classes, attrs) code)
     return $ Plain [Image ("", [], []) [] (dir </> diagName, "")]
                                
   | otherwise = return block
+insertDiagrams block = return block    
 
 -- mostly borred from Bergey again
 writeImage :: FilePath -> DB.BuildResult a b c -> IO (Maybe FilePath)
@@ -89,3 +90,4 @@ writeImage imgName res = checkError res where
     return Nothing
   checkError (DB.Skipped hash) = return Nothing
   checkError (DB.OK hash out ) = return $ Just imgName    
+
