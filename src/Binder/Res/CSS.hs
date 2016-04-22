@@ -16,6 +16,7 @@ import           Clay.Geometry
 import           Clay.Background (sideCenter)
 import           Clay.List
 import           Clay.Border
+import           Clay.Font
 import           Data.Monoid
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T
@@ -36,6 +37,13 @@ bodyStyle = binderBody where
   binderBody = element bodyName ? do
     marginLeft (pct 5)
     marginRight (pct 5)
+    fontFamily ["Helvetica", "arial"] [sansSerif]
+    backgroundColor white
+    paddingTop    (px 10)
+    paddingBottom (px 10)
+    paddingLeft   (px 30)
+    paddingRight  (px 30)
+    
     
 
 tocStyle = element ".toc-list" ? do
@@ -80,3 +88,6 @@ imageStyle = do
        display block
   element ".caption" ? 
     do textAlign $ alignSide sideCenter
+
+--linkStyle = element a ? do
+  --color "#4183C4"
