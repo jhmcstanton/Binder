@@ -2,6 +2,7 @@
 module Binder.Commands (entry) where
 
 import           Binder.File
+import           Binder.File.Filters.Diagrams (compileDiagram)
 import           Binder.Res.CSS 
 import           Binder.Commands.Parser
 import           Binder.Common
@@ -20,6 +21,7 @@ import           Control.Monad.Reader
 import           Control.Monad.State
 import           Control.Monad.Writer (runWriter)
 import           Control.Monad.Reader (runReader)
+import           Diagrams.Builder (buildDiagram)
 
 -- pretty much all of this needs to be refactored for a reader environment
 
@@ -43,6 +45,7 @@ build = do
   ((binderContents, styles), _) <- liftIO $ runStateT collectBinder 0
   let (binderContent, diags) = buildBinder binderContents
   let binder = docTypeHtml . addHeader [] . wrapNotes $ binderContent
+  liftIO $ mapM (compileDiagram verbose) diags
   liftIO $ createTargetIfNecessary targetDir
   liftIO $ createTargetIfNecessary imageDir
   let binderOut = targetDir </> binderName
@@ -52,10 +55,10 @@ build = do
   return styles
 
 mkStyles :: [Css] -> IO ()
-mkStyles styles = 
+mkStyles styles = do
   createTargetIfNecessary targetDir 
-  >> writeStyle stylesheet defaultStyle
-  >> mapM_ (T.appendFile stylesheet) (nub . fmap render $ styles)
+  writeStyle stylesheet defaultStyle
+  mapM_ (T.appendFile stylesheet) (nub . fmap render $ styles)
   where
     stylesheet = targetDir </> "style.css"
 

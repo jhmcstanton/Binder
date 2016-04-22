@@ -1,11 +1,13 @@
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TypeFamilies               #-}
 module Binder.File.Filters.Diagrams
        ( UniqueId,
          insertDiagrams,
          BlockHandler (..),
-         DiagramOpts
+         DiagramOpts,
+         compileDiagram
        ) where
 
 import           Binder.Common
@@ -26,11 +28,11 @@ import qualified Data.Text as T (pack)
 
 
 type UniqueId    = Int
-type DiagramOpts = DB.BuildOpts SVG V2 Integer
+type DiagramOpts = DB.BuildOpts SVG V2 Double
 
 newtype BlockHandler a = BlockHandler {
     runBlockHandler :: ReaderT FilePath (W.WriterT [(FilePath, DiagramOpts)] (State UniqueId)) a
-  } deriving (Functor, Applicative, Monad, MonadReader FilePath, W.MonadWriter [(FilePath, DB.BuildOpts SVG V2 Integer)], MonadState UniqueId)
+  } deriving (Functor, Applicative, Monad, MonadReader FilePath, W.MonadWriter [(FilePath, DiagramOpts)], MonadState UniqueId)
 
 -- arbitrarily chosen
 defaultWidth = 250
@@ -67,7 +69,7 @@ insertDiagrams block@(CodeBlock (ident, classes, attrs) code)
                           ]
           & DB.diaExpr .~ code
           & DB.pragmas .~ ["DeriveDataTypeable"]
---          & DB.postProcess .~ (pad 1.1 . centerXY)
+          & DB.postProcess .~ (pad 1.1 . centerXY)
           -- this is *obviously* not ideal, but ok for right now.
           -- Binder should probably do some smart recompiling in general, not there yet
           & DB.decideRegen .~ DB.alwaysRegenerate
@@ -75,19 +77,38 @@ insertDiagrams block@(CodeBlock (ident, classes, attrs) code)
     return $ Plain [Image ("", [], []) [] (dir </> diagName, "")]
                                
   | otherwise = return block
-insertDiagrams block = return block    
+insertDiagrams block = return block
+
+compileDiagram :: Bool -> (FilePath, DiagramOpts) -> IO (Maybe FilePath)
+compileDiagram False (fp, diag) = do
+  res <- DB.buildDiagram diag
+  handleRes False fp res     
+compileDiagram True (fp, diag) = do
+  hPutStrLn stdout ("Compiling " <> fp)
+  res <- DB.buildDiagram diag
+  handleRes True fp res
 
 -- mostly borred from Bergey again
-writeImage :: FilePath -> DB.BuildResult a b c -> IO (Maybe FilePath)
-writeImage imgName res = checkError res where
+handleRes :: Bool -> FilePath -> DB.BuildResult a b c -> IO (Maybe FilePath)
+handleRes verbose imgName res = checkError res where
   checkError (DB.ParseErr err) = do
-    hPutStrLn stderr ("Failed to parse " <> imgName)
-    hPutStrLn stderr err
+    if verbose
+      then do
+        hPutStrLn stderr ("Failed to parse " <> imgName)
+        hPutStrLn stderr err
+      else return ()  
     return Nothing
   checkError (DB.InterpErr err) = do
-    hPutStrLn stderr ("Failed to interpret " <> imgName)
-    hPutStrLn stderr $ DB.ppInterpError err
+    if verbose
+       then do
+         hPutStrLn stderr ("Failed to interpret " <> imgName)
+         hPutStrLn stderr $ DB.ppInterpError err
+       else return ()
     return Nothing
   checkError (DB.Skipped hash) = return Nothing
-  checkError (DB.OK hash out ) = return $ Just imgName    
+  checkError (DB.OK hash out ) = do
+    if verbose
+       then hPutStrLn stdout ("Correct output for " <> imgName)
+       else return ()
+    return $ Just imgName    
 

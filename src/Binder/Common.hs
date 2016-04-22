@@ -9,7 +9,7 @@ import           Data.Monoid
 
 targetDir, imageDir, binderName :: FilePath
 targetDir  = "target"
-imageDir   = targetDir <> "/images"
+imageDir   = targetDir </> "images"
 binderName = "binder.html"
 
 (</>) :: FilePath -> FilePath -> FilePath
