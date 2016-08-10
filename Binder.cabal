@@ -15,11 +15,14 @@ build-type:          Simple
 -- extra-source-files:  
 cabal-version:       >=1.10
 
-data-files:          res/MathJax/MathJax.js
-
 executable binder
   main-is:             Main.hs
-  -- other-modules:       
+  other-modules:       Binder.Commands,
+                       Binder.Commands.Parser,
+                       Binder.Common,
+                       Binder.File,
+                       Binder.Res.CSS,
+                       Binder.Types
   -- other-extensions:    
   build-depends:       base >=4.8 && <4.9,
                        optparse-applicative >= 0.11 && < 0.13,
